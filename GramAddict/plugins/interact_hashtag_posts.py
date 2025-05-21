@@ -15,44 +15,30 @@ from GramAddict.core.plugin_loader import Plugin
 from GramAddict.core.utils import get_value, init_on_things, sample_sources
 
 logger = logging.getLogger(__name__)
-
-# Script Initialization
 seed()
 
 
 class InteractHashtagPosts(Plugin):
-    """Handles the functionality of interacting with a hashtags post owners"""
+    """Handles the functionality of interacting with hashtag post owners"""
 
-    def __init__(self):
-        super().__init__()
-        self.description = (
-            "Handles the functionality of interacting with a hashtags post owners"
-        )
+    def _init_(self):
+        super()._init_()
+        self.description = "Handles the functionality of interacting with hashtag post owners"
         self.arguments = [
             {
-                "arg": "--hashtag-posts-recent",
+                "arg": "--hashtag-posts",
                 "nargs": "+",
-                "help": "interact to hashtag post owners in recent tab",
+                "help": "Interact with post owners from specified hashtags",
                 "metavar": ("hashtag1", "hashtag2"),
                 "default": None,
                 "operation": True,
-            },
-            {
-                "arg": "--hashtag-posts-top",
-                "nargs": "+",
-                "help": "interact to hashtag post owners in top tab",
-                "metavar": ("hashtag1", "hashtag2"),
-                "default": None,
-                "operation": True,
-            },
+            }
         ]
 
     def run(self, device, configs, storage, sessions, profile_filter, plugin):
         class State:
-            def __init__(self):
-                pass
-
-            is_job_completed = False
+            def _init_(self):
+                self.is_job_completed = False
 
         self.device_id = configs.args.device
         self.sessions = sessions
@@ -60,34 +46,31 @@ class InteractHashtagPosts(Plugin):
         self.args = configs.args
         self.current_mode = plugin
 
-        # IMPORTANT: in each job we assume being on the top of the Profile tab already
-        sources = [
-            source
-            for source in (
-                self.args.hashtag_posts_top
-                if self.current_mode == "hashtag-posts-top"
-                else self.args.hashtag_posts_recent
-            )
-        ]
+        sources = sample_sources(self.args.hashtag_posts, self.args.truncate_sources)
 
-        # Start
-        for source in sample_sources(sources, self.args.truncate_sources):
+        for source in sources:
             (
                 active_limits_reached,
                 _,
                 actions_limit_reached,
             ) = self.session_state.check_limit(limit_type=self.session_state.Limit.ALL)
-            limit_reached = active_limits_reached or actions_limit_reached
+
+            if active_limits_reached or actions_limit_reached:
+                logger.info("Session limits reached.")
+                self.session_state.check_limit(
+                    limit_type=self.session_state.Limit.ALL, output=True
+                )
+                break
 
             self.state = State()
-            if source[0] != "#":
+            if not source.startswith("#"):
                 source = "#" + source
+
             logger.info(
                 f"Handle {emoji.emojize(source, use_aliases=True)}",
                 extra={"color": f"{Fore.BLUE}"},
             )
 
-            # Init common things
             (
                 on_interaction,
                 stories_percentage,
@@ -110,7 +93,6 @@ class InteractHashtagPosts(Plugin):
                 self.handle_hashtag(
                     device,
                     source,
-                    plugin,
                     storage,
                     profile_filter,
                     on_interaction,
@@ -123,21 +105,13 @@ class InteractHashtagPosts(Plugin):
                 )
                 self.state.is_job_completed = True
 
-            while not self.state.is_job_completed and not limit_reached:
+            while not self.state.is_job_completed:
                 job()
-
-            if limit_reached:
-                logger.info("Ending session.")
-                self.session_state.check_limit(
-                    limit_type=self.session_state.Limit.ALL, output=True
-                )
-                break
 
     def handle_hashtag(
         self,
         device,
         hashtag,
-        current_job,
         storage,
         profile_filter,
         on_interaction,
@@ -164,29 +138,20 @@ class InteractHashtagPosts(Plugin):
             current_mode=self.current_mode,
         )
 
-        source_follow_limit = (
-            get_value(self.args.follow_limit, None, 15)
-            if self.args.follow_limit is not None
-            else None
-        )
+        follow_limit = get_value(self.args.follow_limit, None, 15)
         is_follow_limit_reached = partial(
             is_follow_limit_reached_for_source,
             session_state=self.session_state,
-            follow_limit=source_follow_limit,
+            follow_limit=follow_limit,
             source=hashtag,
         )
 
         handle_posts(
-            self,
-            device,
-            self.session_state,
-            hashtag,
-            current_job,
-            storage,
-            profile_filter,
-            on_interaction,
-            interaction,
-            is_follow_limit_reached,
-            interact_percentage,
-            self.args.scrape_to_file,
+            device=device,
+            username=self.session_state.my_username,
+            sessions=self.sessions,
+            likes_limit=self.args.total_likes_limit,
+            on_interaction=on_interaction,
+            my_username=self.session_state.my_username,
+            is_likers=False,  # This is hashtag mode, not liker mode
         )
