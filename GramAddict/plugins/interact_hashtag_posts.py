@@ -21,8 +21,8 @@ seed()
 class InteractHashtagPosts(Plugin):
     """Handles the functionality of interacting with hashtag post owners"""
 
-    def _init_(self):
-        super()._init_()
+    def __init__(self):
+        super().__init__()
         self.description = "Handles the functionality of interacting with hashtag post owners"
         self.arguments = [
             {
@@ -37,7 +37,7 @@ class InteractHashtagPosts(Plugin):
 
     def run(self, device, configs, storage, sessions, profile_filter, plugin):
         class State:
-            def _init_(self):
+            def __init__(self):
                 self.is_job_completed = False
 
         self.device_id = configs.args.device
