@@ -1,33 +1,22 @@
-import uiautomator2 as u2
-import time
 import os
+import time
 
-d = u2.connect()  # auto connects to your device via adb
-
-hashtag = "realhustle"
-
-os.system("adb shell am force-stop com.instagram.android")
-time.sleep(2)
+# Step 1: Launch Instagram
 os.system("adb shell am start -n com.instagram.android/.activity.MainTabActivity")
-time.sleep(6)
+time.sleep(8)
 
-print("Tapping Search tab")
-d.click(350, 2100)  # Adjust for your device
+# Step 2: Tap bottom search tab
+os.system("adb shell input tap 180 1515")
+time.sleep(3)
+
+# Step 3: Tap the top search input field (Y value depends on your device screen)
+# Try a slightly lower Y coordinate than before (e.g., 250–300)
+os.system("adb shell input tap 350 160")
 time.sleep(2)
 
-print("Tapping Search bar")
-d.click(100, 250)
-time.sleep(1)
-d.click(100, 250)
-time.sleep(1)
+# Step 4: Type the hashtag #grindseason
+os.system('adb shell input text "%23grindseason"')
+time.sleep(2)
 
-print(f"Typing hashtag {hashtag}")
-d(focused=True).set_text(f"#{hashtag}") # Use faster input method for typing
-
-time.sleep(1)
-
-print("Pressing Enter")
-d.press("enter")
-time.sleep(6)
-
-print("✅ Done searching hashtag.")
+# Step 5: Tap first search result (adjust Y if needed)
+os.system("adb shell input tap 360 500")
